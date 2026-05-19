@@ -673,34 +673,52 @@ function getTrackingNumbers() {
 /* ===================================================================
  *  Query API (kuaidi100 JSONP with fallback)
  * =================================================================== */
-async function querySingle(trackingNumber) {
-  // Try direct CORS fetch first
-  try {
-    const result = await queryWithFetch(trackingNumber);
-    if (result) return result;
-  } catch(e) { /* fall through */ }
+/* ===================================================================
+ *  Query API - Multi-strategy: proxy-first, fallback to direct/JSONP
+ * ===================================================================
+ * 快递100 API 不支持跨域，使用 CORS 代理转发请求
+ * =================================================================== */
+const PROXY_SERVICES = [
+  // 代理1: corsproxy.io (通用)
+  tn => `https://corsproxy.io/?url=${encodeURIComponent('https://www.kuaidi100.com/query?type=auto&postid=' + encodeURIComponent(tn) + '&_=' + Date.now())}`,
+  // 代理2: allorigins.win
+  tn => `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.kuaidi100.com/query?type=auto&postid=' + encodeURIComponent(tn) + '&_=' + Date.now())}`,
+];
 
-  // Fallback: JSONP
+async function querySingle(trackingNumber) {
+  // Strategy 1: CORS proxy
+  for (let i = 0; i < PROXY_SERVICES.length; i++) {
+    try {
+      const url = PROXY_SERVICES[i](trackingNumber);
+      const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      if (!resp.ok) continue;
+      const text = await resp.text();
+      try {
+        const data = JSON.parse(text);
+        const result = parseKuaidi100Response(data, trackingNumber);
+        if (result) return result;
+      } catch(e) { continue; }
+    } catch(e) { continue; }
+  }
+
+  // Strategy 2: Direct fetch (CORS may work in dev environment)
+  try {
+    const url = `https://www.kuaidi100.com/query?type=auto&postid=${encodeURIComponent(trackingNumber)}&_=${Date.now()}`;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (resp.ok) {
+      const data = await resp.json();
+      const result = parseKuaidi100Response(data, trackingNumber);
+      if (result) return result;
+    }
+  } catch(e) { /* CORS blocked, expected */ }
+
+  // Strategy 3: JSONP (script injection)
   try {
     const result = await queryWithJSONP(trackingNumber);
     if (result) return result;
   } catch(e) { /* fall through */ }
 
-  // Fallback: proxy
-  try {
-    const result = await queryWithProxy(trackingNumber);
-    if (result) return result;
-  } catch(e) { /* fall through */ }
-
   return null;
-}
-
-async function queryWithFetch(tn) {
-  const url = `https://www.kuaidi100.com/query?type=auto&postid=${encodeURIComponent(tn)}&_=${Date.now()}`;
-  const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!resp.ok) return null;
-  const data = await resp.json();
-  return parseKuaidi100Response(data, tn);
 }
 
 function queryWithJSONP(tn) {
@@ -709,7 +727,7 @@ function queryWithJSONP(tn) {
     const timeout = setTimeout(() => {
       cleanup();
       reject(new Error('JSONP timeout'));
-    }, 10000);
+    }, 8000);
 
     function cleanup() {
       clearTimeout(timeout);
@@ -729,26 +747,6 @@ function queryWithJSONP(tn) {
     script.onerror = function() { cleanup(); reject(new Error('JSONP network error')); };
     document.body.appendChild(script);
   });
-}
-
-async function queryWithProxy(tn) {
-  const proxies = [
-    `https://api.allorigins.win/raw?url=https://www.kuaidi100.com/query?type=auto&postid=${encodeURIComponent(tn)}`,
-  ];
-  for (const proxyUrl of proxies) {
-    try {
-      const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
-      if (resp.ok) {
-        const text = await resp.text();
-        try {
-          const data = JSON.parse(text);
-          const result = parseKuaidi100Response(data, tn);
-          if (result) return result;
-        } catch(e) {}
-      }
-    } catch(e) { continue; }
-  }
-  return null;
 }
 
 function parseKuaidi100Response(data, tn) {
