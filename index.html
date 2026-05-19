@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no, email=no">
+<title>快递空包批量筛查</title>
+<meta name="description" content="快递空包批量筛查工具 - 纯本地运行，不上传不存储，保护隐私">
+<style>
+:root {
+  --primary: #1a73e8;
+  --primary-hover: #1557b0;
+  --success: #0f9d58;
+  --warning: #f9ab00;
+  --danger: #ea4335;
+  --gray: #5f6368;
+  --gray-light: #f1f3f4;
+  --gray-border: #dadce0;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08);
+  --shadow-lg: 0 4px 16px rgba(0,0,0,.12);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: var(--font);
+  background: #fff;
+  color: #202124;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+/* Header */
+.header {
+  position: sticky; top: 0; z-index: 100;
+  background: #fff; border-bottom: 1px solid var(--gray-border);
+  padding: 12px 16px; text-align: center;
+}
+.header h1 {
+  font-size: 1.25rem; font-weight: 600; letter-spacing: .5px;
+}
+.header .subtitle {
+  font-size: .8rem; color: var(--gray); margin-top: 2px;
+}
+/* Container */
+.container { max-width: 800px; margin: 0 auto; padding: 16px; }
+/* Card */
+.card {
+  background: #fff; border: 1px solid var(--gray-border);
+  border-radius: var(--radius); padding: 16px; margin-bottom: 16px;
+}
+/* Textarea */
+.textarea-wrap { position: relative; }
+.textarea-wrap textarea {
+  width: 100%; min-height: 120px; padding: 12px;
+  border: 1px solid var(--gray-border); border-radius: var(--radius);
+  font-size: .9rem; font-family: var(--font); resize: vertical;
+  outline: none; transition: border-color .2s;
+  line-height: 1.5;
+}
+.textarea-wrap textarea:focus { border-color: var(--primary); }
+.textarea-wrap .placeholder-text {
+  position: absolute; top: 14px; left: 14px;
+  color: #9aa0a6; font-size: .85rem; pointer-events: none;
+}
+/* Upload zone */
+.upload-zone {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px;
+}
+.upload-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border: 1px solid var(--gray-border);
+  border-radius: var(--radius); background: #fff;
+  font-size: .85rem; color: var(--gray); cursor: pointer;
+  transition: all .2s;
+}
+.upload-btn:hover { background: var(--gray-light); border-color: var(--primary); color: var(--primary); }
+.upload-btn input[type="file"] { display: none; }
+.count-badge {
+  display: inline-block; background: var(--gray-light);
+  padding: 2px 10px; border-radius: 20px; font-size: .8rem; color: var(--gray);
+  margin-left: 8px;
+}
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 24px; border: none; border-radius: var(--radius);
+  font-size: .95rem; font-weight: 500; cursor: pointer;
+  transition: all .2s; text-decoration: none;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-hover); }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+.btn-success { background: var(--success); color: #fff; }
+.btn-success:hover { background: #0b8043; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #c5221f; }
+.btn-outline {
+  background: #fff; color: var(--gray); border: 1px solid var(--gray-border);
+}
+.btn-outline:hover { border-color: var(--primary); color: var(--primary); }
+.btn-block { width: 100%; }
+.btn-lg { padding: 12px 28px; font-size: 1rem; }
+/* Query section */
+.query-bar {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  margin: 12px 0;
+}
+.query-bar .btn { flex-shrink: 0; }
+.query-progress {
+  flex: 1; min-width: 120px;
+}
+.progress-bar {
+  height: 6px; background: var(--gray-light); border-radius: 3px;
+  overflow: hidden; position: relative;
+}
+.progress-bar-fill {
+  height: 100%; background: var(--primary); border-radius: 3px;
+  transition: width .3s ease; width: 0;
+}
+.progress-text { font-size: .8rem; color: var(--gray); margin-top: 4px; }
+/* Stats */
+.stats {
+  display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0;
+}
+.stat-item {
+  padding: 6px 14px; border-radius: 20px; font-size: .82rem;
+  background: var(--gray-light); color: var(--gray);
+}
+.stat-item .stat-num { font-weight: 600; }
+.stat-item.all { background: #e8f0fe; color: var(--primary); }
+.stat-item.normal { background: #e6f4ea; color: var(--success); }
+.stat-item.empty { background: #fef7e0; color: #e37400; }
+.stat-item.pending { background: #fce8e6; color: var(--danger); }
+.stat-item.invalid { background: #f1f3f4; color: #5f6368; }
+/* Filter tabs */
+.filter-tabs {
+  display: flex; gap: 4px; flex-wrap: wrap;
+  margin: 12px 0 8px; padding: 4px; background: var(--gray-light);
+  border-radius: var(--radius);
+}
+.filter-tab {
+  padding: 6px 14px; border: none; border-radius: 6px;
+  font-size: .82rem; cursor: pointer; background: transparent;
+  color: var(--gray); transition: all .2s;
+}
+.filter-tab:hover { color: #202124; }
+.filter-tab.active { background: #fff; color: var(--primary); font-weight: 500; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+/* Table */
+.table-wrap {
+  overflow-x: auto; margin: 8px 0;
+  border: 1px solid var(--gray-border); border-radius: var(--radius);
+}
+table {
+  width: 100%; border-collapse: collapse; font-size: .85rem;
+}
+thead { background: var(--gray-light); position: sticky; top: 0; }
+th {
+  padding: 10px 12px; text-align: left; font-weight: 500;
+  color: var(--gray); white-space: nowrap;
+  border-bottom: 1px solid var(--gray-border);
+}
+td {
+  padding: 10px 12px; border-bottom: 1px solid #f1f3f4;
+  vertical-align: top;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: #f8f9fa; }
+/* Status badges */
+.badge {
+  display: inline-block; padding: 2px 10px; border-radius: 20px;
+  font-size: .78rem; font-weight: 500;
+}
+.badge-normal { background: #e6f4ea; color: var(--success); }
+.badge-empty { background: #fef7e0; color: #e37400; }
+.badge-pending { background: #fce8e6; color: var(--danger); }
+.badge-invalid { background: #f1f3f4; color: #5f6368; }
+.badge-querying { background: #e8f0fe; color: var(--primary); }
+.badge-unknown { background: #f1f3f4; color: #5f6368; }
+/* Export section */
+.export-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 12px; padding: 12px 0;
+  border-top: 1px solid var(--gray-border); margin-top: 8px;
+}
+.export-bar .info { font-size: .85rem; color: var(--gray); }
+.export-bar .info strong { color: #202124; }
+/* Pagination / Load more */
+.load-more-wrap { text-align: center; padding: 12px 0; }
+/* Payment Modal */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.45); backdrop-filter: blur(2px);
+  justify-content: center; align-items: center; padding: 16px;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: #fff; border-radius: 12px; width: 100%; max-width: 480px;
+  max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow-lg);
+  animation: modalIn .25s ease;
+}
+@keyframes modalIn { from { opacity: 0; transform: scale(.95) translateY(10px); } to { opacity: 1; transform: scale(1); } }
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px; border-bottom: 1px solid var(--gray-border);
+}
+.modal-header h2 { font-size: 1.1rem; font-weight: 600; }
+.modal-close {
+  width: 32px; height: 32px; border: none; background: var(--gray-light);
+  border-radius: 50%; font-size: 1.2rem; cursor: pointer; display: flex;
+  align-items: center; justify-content: center; color: var(--gray);
+}
+.modal-close:hover { background: #e8eaed; }
+.modal-body { padding: 20px; }
+/* Pricing cards */
+.pricing-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px; margin-bottom: 20px;
+}
+.pricing-card {
+  border: 2px solid var(--gray-border); border-radius: var(--radius);
+  padding: 14px 12px; text-align: center; cursor: pointer;
+  transition: all .2s;
+}
+.pricing-card:hover { border-color: var(--primary); }
+.pricing-card.selected {
+  border-color: var(--primary); background: #e8f0fe;
+}
+.pricing-card .price { font-size: 1.4rem; font-weight: 700; color: var(--danger); }
+.pricing-card .price-unit { font-size: .8rem; }
+.pricing-card .desc { font-size: .8rem; color: var(--gray); margin-top: 4px; }
+/* QR codes */
+.qr-section { margin: 16px 0; }
+.qr-section h3 { font-size: .95rem; margin-bottom: 12px; }
+.qr-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+}
+.qr-item {
+  text-align: center; padding: 12px; border: 1px solid var(--gray-border);
+  border-radius: var(--radius);
+}
+.qr-item img {
+  width: 100%; max-width: 160px; height: auto; display: block;
+  margin: 0 auto 8px; border-radius: 6px;
+}
+.qr-item .label { font-weight: 500; font-size: .85rem; }
+.qr-item .hint { font-size: .75rem; color: var(--gray); margin-top: 4px; }
+/* Verify form */
+.verify-section { margin-top: 16px; border-top: 1px solid var(--gray-border); padding-top: 16px; }
+.verify-section .tip { font-size: .82rem; color: var(--gray); margin-bottom: 12px; }
+.verify-form { display: flex; gap: 8px; }
+.verify-form input {
+  flex: 1; padding: 10px 12px; border: 1px solid var(--gray-border);
+  border-radius: var(--radius); font-size: .9rem; outline: none;
+}
+.verify-form input:focus { border-color: var(--primary); }
+.verify-form .btn { flex-shrink: 0; }
+/* Payment note */
+.payment-note {
+  background: #fef7e0; border-radius: var(--radius); padding: 12px;
+  font-size: .82rem; color: #e37400; margin-top: 12px;
+}
+.payment-note strong { color: #d93025; }
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  z-index: 2000; padding: 12px 24px; border-radius: var(--radius);
+  font-size: .88rem; color: #fff; box-shadow: var(--shadow-lg);
+  opacity: 0; transition: all .3s; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.success { background: var(--success); }
+.toast.error { background: var(--danger); }
+.toast.warning { background: var(--warning); color: #202124; }
+.toast.info { background: #37474f; }
+/* Empty state */
+.empty-state { text-align: center; padding: 40px 20px; color: var(--gray); }
+.empty-state .icon { font-size: 2.5rem; margin-bottom: 8px; }
+.empty-state p { font-size: .9rem; }
+/* Info text */
+.info-text {
+  font-size: .82rem; color: var(--gray); margin: 8px 0;
+}
+.info-text a { color: var(--primary); text-decoration: none; }
+/* Price reminder */
+.price-reminder {
+  background: #fef7e0; border-radius: var(--radius); padding: 10px 14px;
+  font-size: .82rem; color: #e37400; margin: 8px 0; display: flex;
+  justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;
+}
+.price-reminder .btn { font-size: .8rem; padding: 6px 14px; }
+/* Responsive */
+@media (max-width: 600px) {
+  .container { padding: 12px; }
+  .card { padding: 12px; }
+  .header h1 { font-size: 1.1rem; }
+  .query-bar { flex-direction: column; }
+  .query-bar .btn { width: 100%; }
+  .query-progress { width: 100%; }
+  .stats { gap: 6px; }
+  .stat-item { font-size: .75rem; padding: 4px 10px; }
+  .filter-tabs { gap: 2px; padding: 3px; }
+  .filter-tab { font-size: .76rem; padding: 5px 10px; }
+  .table-wrap { font-size: .78rem; margin: 6px 0; }
+  th, td { padding: 8px 8px; }
+  .qr-grid { grid-template-columns: 1fr; max-width: 260px; margin: 0 auto; }
+  .pricing-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .pricing-card { padding: 12px 8px; }
+  .pricing-card .price { font-size: 1.2rem; }
+  .verify-form { flex-direction: column; }
+  .modal { max-width: 100%; border-radius: 12px 12px 0 0; margin-top: auto; }
+  .modal-overlay { align-items: flex-end; }
+  .export-bar { flex-direction: column; align-items: stretch; text-align: center; }
+}
+@media (max-width: 380px) {
+  .pricing-grid { grid-template-columns: 1fr 1fr; }
+  .stat-item { font-size: .7rem; padding: 3px 8px; }
+}
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #dadce0; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #bdc1c6; }
+/* Loading spinner */
+.spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,.3); border-top-color: #fff;
+  border-radius: 50%; animation: spin .6s linear infinite;
+}
+.spinner.dark { border-color: rgba(0,0,0,.15); border-top-color: var(--primary); }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Prevent text selection on buttons */
+.btn, .filter-tab, .pricing-card, .upload-btn { user-select: none; -webkit-user-select: none; }
+/* Safety - avoid overflow in WeChat browser */
+img { max-width: 100%; height: auto; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📦 快递空包批量筛查</h1>
+  <div class="subtitle">纯本地运行 · 单号不上传不存储 · 保护隐私</div>
+</div>
+
+<div class="container" id="app">
+
+  <!-- Input Section -->
+  <div class="card">
+    <div class="textarea-wrap">
+      <textarea id="inputArea" placeholder="在此粘贴快递单号，每行一个&#10;支持同时粘贴混合不同快递公司单号"></textarea>
+    </div>
+    <div class="upload-zone">
+      <label class="upload-btn">
+        <span>📄</span> 上传TXT文件
+        <input type="file" id="txtFileInput" accept=".txt">
+      </label>
+      <label class="upload-btn">
+        <span>📊</span> 上传Excel文件
+        <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv">
+      </label>
+      <span class="count-badge" id="countBadge">共 0 个单号</span>
+    </div>
+  </div>
+
+  <!-- Query Section -->
+  <div class="card">
+    <div class="query-bar">
+      <button class="btn btn-primary btn-lg" id="queryBtn" onclick="startQuery()">
+        🔍 开始批量查询
+      </button>
+      <div class="query-progress" id="progressWrap" style="display:none;">
+        <div class="progress-bar">
+          <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-text" id="progressText">查询中 0/0 ...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Bar -->
+  <div class="stats" id="statsBar" style="display:none;">
+    <span class="stat-item all">总计 <span class="stat-num" id="statTotal">0</span></span>
+    <span class="stat-item normal">✅ 正常物流 <span class="stat-num" id="statNormal">0</span></span>
+    <span class="stat-item empty">⚠️ 疑似空包 <span class="stat-num" id="statEmpty">0</span></span>
+    <span class="stat-item pending">📭 仅揽收 <span class="stat-num" id="statPending">0</span></span>
+    <span class="stat-item invalid">❌ 无效单号 <span class="stat-num" id="statInvalid">0</span></span>
+  </div>
+
+  <!-- Filter Tabs -->
+  <div class="filter-tabs" id="filterTabs" style="display:none;">
+    <button class="filter-tab active" data-filter="all" onclick="setFilter('all')">全部</button>
+    <button class="filter-tab" data-filter="normal" onclick="setFilter('normal')">✅ 正常物流</button>
+    <button class="filter-tab" data-filter="empty" onclick="setFilter('empty')">⚠️ 疑似空包</button>
+    <button class="filter-tab" data-filter="pending" onclick="setFilter('pending')">📭 仅揽收</button>
+    <button class="filter-tab" data-filter="invalid" onclick="setFilter('invalid')">❌ 无效单号</button>
+  </div>
+
+  <!-- Price Reminder -->
+  <div class="price-reminder" id="priceReminder" style="display:none;">
+    <span>📊 已查出 <strong id="reminderCount">0</strong> 条结果，免费查看所有结果</span>
+    <button class="btn btn-danger" onclick="openPaymentModal()">💰 付费导出分类表格</button>
+  </div>
+
+  <!-- Results Table -->
+  <div class="card" id="resultsWrap" style="display:none;">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px">#</th>
+            <th style="min-width:120px">快递单号</th>
+            <th style="width:80px">快递公司</th>
+            <th style="width:80px">物流状态</th>
+            <th>最新物流信息</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+    <div class="load-more-wrap" id="loadMoreWrap" style="display:none;">
+      <button class="btn btn-outline" onclick="loadMore()">加载更多 <span id="loadMoreCount"></span></button>
+    </div>
+
+    <!-- Export Bar -->
+    <div class="export-bar" id="exportBar">
+      <div class="info">
+        已显示 <strong id="shownCount">0</strong> 条结果
+        <span id="exportLockInfo" style="color:var(--gray);font-size:.78rem;display:block;margin-top:4px;">
+          🔒 导出分类表格需付费解锁
+        </span>
+        <span id="exportUnlockInfo" style="display:none;color:var(--success);font-size:.78rem;margin-top:4px;">
+          ✅ 已解锁，可随时导出
+        </span>
+      </div>
+      <button class="btn btn-success" id="exportBtn" onclick="openPaymentModal()">
+        📤 导出分类表格
+      </button>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="info-text" style="text-align:center;padding:20px 0 30px;">
+    所有数据均在本地浏览器处理，单号不上传服务器，请放心使用<br>
+    如有问题请联系技术支持
+  </div>
+</div>
+
+<!-- Payment Modal -->
+<div class="modal-overlay" id="paymentModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>💰 付费解锁导出</h2>
+      <button class="modal-close" onclick="closePaymentModal()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Pricing -->
+      <div class="pricing-grid">
+        <div class="pricing-card selected" data-plan="single" onclick="selectPlan('single')">
+          <div class="price">2.99<span class="price-unit">元</span></div>
+          <div class="desc">单次50条导出</div>
+        </div>
+        <div class="pricing-card" data-plan="day" onclick="selectPlan('day')">
+          <div class="price">6.99<span class="price-unit">元</span></div>
+          <div class="desc">全天无限导出</div>
+        </div>
+        <div class="pricing-card" data-plan="week" onclick="selectPlan('week')">
+          <div class="price">12.99<span class="price-unit">元</span></div>
+          <div class="desc">一周无限权限</div>
+        </div>
+        <div class="pricing-card" data-plan="month" onclick="selectPlan('month')">
+          <div class="price">19.99<span class="price-unit">元</span></div>
+          <div class="desc">一月无限权限</div>
+        </div>
+      </div>
+
+      <!-- QR Codes -->
+      <div class="qr-section">
+        <h3>👇 请使用微信或支付宝扫码支付</h3>
+        <div class="qr-grid">
+          <div class="qr-item">
+            <img id="wechatQR" src="https://via.placeholder.com/160?text=微信收款码" alt="微信收款码">
+            <div class="label">微信支付</div>
+            <div class="hint" id="wechatAmount">金额：<strong>2.99元</strong></div>
+          </div>
+          <div class="qr-item">
+            <img id="alipayQR" src="https://via.placeholder.com/160?text=支付宝收款码" alt="支付宝收款码">
+            <div class="label">支付宝</div>
+            <div class="hint" id="alipayAmount">金额：<strong>2.99元</strong></div>
+          </div>
+        </div>
+        <div class="payment-note">
+          💡 <strong>付款说明：</strong>支付后请复制 <strong>微信/支付宝账单中的"商户单号"或"交易订单号"</strong>（通常以 420000 开头或纯数字），粘贴到下方输入框点击验证即可自动解锁。
+        </div>
+      </div>
+
+      <!-- Verification -->
+      <div class="verify-section">
+        <div class="tip">✅ 已支付？输入交易单号验证解锁（支付后单号自动生成，立即可用）</div>
+        <div class="verify-form">
+          <input type="text" id="transactionId" placeholder="粘贴交易单号/商户单号" maxlength="50" autocomplete="off">
+          <button class="btn btn-primary" onclick="verifyPayment()">验证解锁</button>
+        </div>
+        <div id="verifyResult" style="margin-top:10px;font-size:.85rem;"></div>
+        <div style="margin-top:12px;font-size:.78rem;color:var(--gray);">
+          找不到单号？支付后可在微信/支付宝「账单详情」中查看「商户单号」或「交易订单号」<br>
+          如遇问题请联系客服手动解锁
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================================================================
+ *  Configuration - 只需修改此处即可替换收款码图片链接
+ * ===================================================================
+ * 1. 上传你的微信收款码和支付宝收款码图片到任意图床
+ * 2. 将下面的图片链接替换成你的图片直链
+ * 3. 无需改动其他任何代码
+ */
+const PAYMENT_CONFIG = {
+  /* ---- 微信收款码图片链接（替换为你的微信收款码图片直链） ---- */
+  wechatQR: 'https://via.placeholder.com/160?text=微信收款码',
+  /* ---- 支付宝收款码图片链接（替换为你的支付宝收款码图片直链） ---- */
+  alipayQR: 'https://via.placeholder.com/160?text=支付宝收款码',
+};
+
+/* ===================================================================
+ *  Pricing - 固定价格（严禁修改）
+ * =================================================================== */
+const PRICING = {
+  single: { label: '单次50条导出', price: 2.99, duration: 0, quota: 50 },
+  day:    { label: '全天无限导出', price: 6.99, duration: 1, quota: Infinity },
+  week:   { label: '一周无限权限', price: 12.99, duration: 7, quota: Infinity },
+  month:  { label: '一月无限权限', price: 19.99, duration: 30, quota: Infinity },
+};
+
+/* ===================================================================
+ *  Express Company Codes for kuaidi100 API
+ * =================================================================== */
+const EXPRESS_CODES = {
+  '中通快递': 'zhongtong',
+  '圆通速递': 'yuantong',
+  '申通快递': 'shentong',
+  '韵达快递': 'yunda',
+  '极兔速递': 'jtexpress',
+  '顺丰速运': 'shunfeng',
+  '中国邮政': 'youzhengguonei',
+  'EMS': 'ems',
+  '京东快递': 'jd',
+  '德邦快递': 'debangkuaidi',
+  '百世快递': 'huitongkuaidi',
+  '天天快递': 'tiantian',
+  '宅急送': 'zhaijisong',
+  '跨越速运': 'kuayue',
+  '优速快递': 'youshuwuliu',
+  '丹鸟物流': 'danniao',
+  '菜鸟裹裹': 'cainiao',
+  '丰网速运': 'fengwang',
+  '极兔': 'jtexpress',
+  '邮政': 'youzhengguonei',
+  '中通': 'zhongtong',
+  '圆通': 'yuantong',
+  '申通': 'shentong',
+  '韵达': 'yunda',
+  '顺丰': 'shunfeng',
+  '京东': 'jd',
+  '德邦': 'debangkuaidi',
+  '百世': 'huitongkuaidi',
+  '天天': 'tiantian',
+  '优速': 'youshuwuliu',
+  '丹鸟': 'danniao',
+};
+
+/* ===================================================================
+ *  State
+ * =================================================================== */
+let state = {
+  allResults: [],       // all query results
+  trackingNumbers: [],  // current batch
+  currentFilter: 'all',
+  displayLimit: 50,     // how many rows to show at once
+  displayCount: 0,
+  isQuerying: false,
+  queryAborted: false,
+  currentPlan: 'single',
+};
+
+/* ===================================================================
+ *  Toast
+ * =================================================================== */
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + (type || 'info') + ' show';
+  clearTimeout(t._hide);
+  t._hide = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+/* ===================================================================
+ *  File Upload
+ * =================================================================== */
+document.getElementById('txtFileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const text = ev.target.result;
+    const nums = text.split(/[\r\n,，\t;；\s]+/).map(s => s.trim()).filter(s => s.length >= 6);
+    addTrackingNumbers(nums);
+    showToast(`已从TXT导入 ${nums.length} 个单号`, 'success');
+  };
+  reader.readAsText(file, 'UTF-8');
+  e.target.value = '';
+});
+
+document.getElementById('excelFileInput').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const data = new Uint8Array(ev.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+      const nums = [];
+      for (const row of json) {
+        for (const cell of row) {
+          if (cell != null && String(cell).trim().length >= 6) {
+            const clean = String(cell).replace(/[\s,，\t]/g, '').trim();
+            if (clean.length >= 6 && /^[A-Za-z0-9]+$/.test(clean)) {
+              nums.push(clean);
+            }
+          }
+        }
+      }
+      addTrackingNumbers(nums);
+      showToast(`已从Excel导入 ${nums.length} 个单号`, 'success');
+    } catch (err) {
+      showToast('Excel解析失败，请确认为标准格式', 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  e.target.value = '';
+});
+
+function addTrackingNumbers(nums) {
+  const area = document.getElementById('inputArea');
+  const existing = area.value.split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+  const all = [...existing, ...nums];
+  area.value = all.join('\n');
+  updateCount();
+}
+
+function updateCount() {
+  const nums = getTrackingNumbers();
+  document.getElementById('countBadge').textContent = `共 ${nums.length} 个单号`;
+}
+
+document.getElementById('inputArea').addEventListener('input', updateCount);
+
+function getTrackingNumbers() {
+  const val = document.getElementById('inputArea').value;
+  return val.split(/[\r\n,，\t]+/).map(s => s.trim().replace(/[\s]/g,'')).filter(s => s.length >= 6);
+}
+
+/* ===================================================================
+ *  Query API (kuaidi100 JSONP with fallback)
+ * =================================================================== */
+async function querySingle(trackingNumber) {
+  // Try direct CORS fetch first
+  try {
+    const result = await queryWithFetch(trackingNumber);
+    if (result) return result;
+  } catch(e) { /* fall through */ }
+
+  // Fallback: JSONP
+  try {
+    const result = await queryWithJSONP(trackingNumber);
+    if (result) return result;
+  } catch(e) { /* fall through */ }
+
+  // Fallback: proxy
+  try {
+    const result = await queryWithProxy(trackingNumber);
+    if (result) return result;
+  } catch(e) { /* fall through */ }
+
+  return null;
+}
+
+async function queryWithFetch(tn) {
+  const url = `https://www.kuaidi100.com/query?type=auto&postid=${encodeURIComponent(tn)}&_=${Date.now()}`;
+  const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  if (!resp.ok) return null;
+  const data = await resp.json();
+  return parseKuaidi100Response(data, tn);
+}
+
+function queryWithJSONP(tn) {
+  return new Promise((resolve, reject) => {
+    const cb = 'kdp_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error('JSONP timeout'));
+    }, 10000);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      try { delete window[cb]; } catch(e) {}
+      const sc = document.getElementById('_kp_' + cb);
+      if (sc) sc.remove();
+    }
+
+    window[cb] = function(data) {
+      cleanup();
+      resolve(parseKuaidi100Response(data, tn));
+    };
+
+    const script = document.createElement('script');
+    script.id = '_kp_' + cb;
+    script.src = `https://www.kuaidi100.com/query?type=auto&postid=${encodeURIComponent(tn)}&callback=${cb}&_=${Date.now()}`;
+    script.onerror = function() { cleanup(); reject(new Error('JSONP network error')); };
+    document.body.appendChild(script);
+  });
+}
+
+async function queryWithProxy(tn) {
+  const proxies = [
+    `https://api.allorigins.win/raw?url=https://www.kuaidi100.com/query?type=auto&postid=${encodeURIComponent(tn)}`,
+  ];
+  for (const proxyUrl of proxies) {
+    try {
+      const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
+      if (resp.ok) {
+        const text = await resp.text();
+        try {
+          const data = JSON.parse(text);
+          const result = parseKuaidi100Response(data, tn);
+          if (result) return result;
+        } catch(e) {}
+      }
+    } catch(e) { continue; }
+  }
+  return null;
+}
+
+function parseKuaidi100Response(data, tn) {
+  if (!data) return null;
+  if (data.status !== '200' && data.status !== 200) {
+    // Some error
+    if (data.message && data.message.includes('查无结果')) {
+      return { number: tn, company: '未知快递', status: 'invalid', message: data.message || '查无此单号', raw: data };
+    }
+    // maybe still has data
+    if (data.data && data.data.length > 0) {
+      return processTrackingData(tn, data.com || '未知', data.data, data.state);
+    }
+    return null;
+  }
+  if (!data.data || !Array.isArray(data.data) || data.data.length === 0) {
+    // No tracking info
+    return { number: tn, company: detectCompanyByCode(data.com) || '未知快递', status: 'invalid', message: '暂无物流信息', raw: data };
+  }
+  return processTrackingData(tn, data.com || '未知', data.data, data.state);
+}
+
+function detectCompanyByCode(code) {
+  if (!code) return null;
+  for (const [name, c] of Object.entries(EXPRESS_CODES)) {
+    if (c === code) return name;
+  }
+  return code;
+}
+
+function processTrackingData(tn, companyCode, trackingData, stateCode) {
+  const company = detectCompanyByCode(companyCode) || companyCode || '未知快递';
+  const count = trackingData.length;
+  const latest = trackingData[0] ? trackingData[0].context || trackingData[0].context_text || '' : '';
+  const allContexts = trackingData.map(d => (d.context || d.context_text || '')).join(' ');
+
+  // Classification logic
+  let status, statusText;
+
+  if (!trackingData || trackingData.length === 0) {
+    status = 'invalid';
+    statusText = '无效单号';
+  } else if (stateCode === '3' && count >= 2) {
+    status = 'normal';
+    statusText = '已签收';
+  } else if (stateCode === '5') {
+    status = 'normal';
+    statusText = '派送中';
+  } else if (stateCode === '0' && count >= 3) {
+    status = 'normal';
+    statusText = '运输中';
+  } else if (stateCode === '3' || stateCode === '5' || stateCode === '0') {
+    // Check depth
+    if (count <= 2) {
+      // Only 1-2 entries, check if they show actual movement
+      const hasPickup = /揽收|收件|已收|已取/.test(allContexts);
+      const hasMovement = /分拣|中转|发往|到达|派送|签收/.test(allContexts);
+      if (hasPickup && !hasMovement) {
+        status = 'pending';
+        statusText = '仅揽收';
+      } else if (hasMovement) {
+        status = 'normal';
+        statusText = '运输中';
+      } else {
+        status = 'empty';
+        statusText = '疑似空包';
+      }
+    } else {
+      // 3+ entries should have movement
+      const hasRealMovement = /分拣|中转|发往|到达|派送|签收/.test(allContexts);
+      if (hasRealMovement) {
+        status = 'normal';
+        statusText = '运输中';
+      } else if (count <= 3) {
+        status = 'empty';
+        statusText = '疑似空包';
+      } else {
+        status = 'normal';
+        statusText = '运输中';
+      }
+    }
+  } else if (stateCode === '1') {
+    // Only collected
+    if (count <= 2) {
+      status = 'pending';
+      statusText = '仅揽收';
+    } else {
+      status = 'empty';
+      statusText = '疑似空包';
+    }
+  } else if (stateCode === '2' || stateCode === '4' || stateCode === '6') {
+    // Difficult/returned
+    status = 'empty';
+    statusText = '异常/退回';
+  } else {
+    // Unknown state, classify by data
+    if (count <= 1) {
+      const hasPickup = /揽收|收件/.test(allContexts);
+      status = hasPickup ? 'pending' : 'invalid';
+      statusText = hasPickup ? '仅揽收' : '无效单号';
+    } else if (count <= 3) {
+      const hasRealMovement = /分拣|中转|发往|到达|派送|签收/.test(allContexts);
+      if (hasRealMovement) {
+        status = 'normal';
+        statusText = '运输中';
+      } else {
+        // Only pickup/accept entries, no actual delivery movement
+        const allPickup = trackingData.every(d => /揽收|收件|已收|已取/.test(d.context || ''));
+        status = allPickup ? 'empty' : 'normal';
+        statusText = allPickup ? '疑似空包' : '运输中';
+      }
+    } else {
+      status = 'normal';
+      statusText = '运输中';
+    }
+  }
+
+  // Check for empty package indicators in text
+  if (status === 'normal' || status === 'empty' || status === 'pending') {
+    const emptyIndicators = /空包|空包裹|虚假|重量为0|0kg|无重量|疑似空/.test(allContexts);
+    if (emptyIndicators) {
+      status = 'empty';
+      statusText = '疑似空包';
+    }
+  }
+
+  return {
+    number: tn,
+    company: company,
+    status: status,
+    statusText: statusText,
+    message: latest || '暂无物流信息',
+    trackingCount: count,
+    raw: trackingData,
+  };
+}
+
+/* ===================================================================
+ *  Batch Query
+ * =================================================================== */
+async function startQuery() {
+  const nums = getTrackingNumbers();
+  if (nums.length === 0) {
+    showToast('请先输入或上传快递单号', 'warning');
+    return;
+  }
+
+  // Filter out duplicates
+  const unique = [...new Set(nums)];
+
+  if (state.isQuerying) {
+    // Abort current query
+    state.queryAborted = true;
+    document.getElementById('queryBtn').disabled = true;
+    document.getElementById('queryBtn').textContent = '⏹ 正在停止...';
+    return;
+  }
+
+  state.isQuerying = true;
+  state.queryAborted = false;
+  state.allResults = [];
+  state.displayCount = 0;
+  state.displayLimit = 50;
+  state.trackingNumbers = unique;
+
+  document.getElementById('queryBtn').disabled = true;
+  document.getElementById('queryBtn').innerHTML = '<span class="spinner"></span> 查询中，点击停止';
+  document.getElementById('progressWrap').style.display = 'block';
+  document.getElementById('resultsWrap').style.display = 'none';
+  document.getElementById('filterTabs').style.display = 'none';
+  document.getElementById('priceReminder').style.display = 'none';
+  document.getElementById('statsBar').style.display = 'none';
+  document.getElementById('resultsBody').innerHTML = '';
+  updateProgress(0, unique.length);
+
+  const BATCH_SIZE = 5;
+  const BATCH_DELAY = 300;
+  let completed = 0;
+
+  for (let i = 0; i < unique.length; i += BATCH_SIZE) {
+    if (state.queryAborted) break;
+
+    const batch = unique.slice(i, i + BATCH_SIZE);
+    const promises = batch.map(tn => querySingle(tn).catch(() => null));
+
+    // Wait for current batch
+    const batchResults = await Promise.all(promises);
+
+    for (let j = 0; j < batch.length; j++) {
+      const idx = i + j;
+      if (idx >= unique.length) break;
+      const result = batchResults[j];
+      if (result) {
+        state.allResults.push(result);
+      } else {
+        state.allResults.push({
+          number: unique[idx],
+          company: '未知快递',
+          status: 'invalid',
+          statusText: '查询失败',
+          message: 'API查询无响应，请重试',
+          trackingCount: 0,
+        });
+      }
+    }
+
+    completed += batch.length;
+    updateProgress(completed, unique.length);
+
+    if (state.queryAborted) break;
+
+    // Display intermediate results
+    displayResults();
+
+    // Delay before next batch
+    if (i + BATCH_SIZE < unique.length && !state.queryAborted) {
+      await sleep(BATCH_DELAY);
+    }
+  }
+
+  state.isQuerying = false;
+  document.getElementById('queryBtn').disabled = false;
+  document.getElementById('queryBtn').innerHTML = '🔍 开始批量查询';
+
+  if (state.queryAborted) {
+    showToast(`查询已停止，已完成 ${state.allResults.length} 个单号`, 'info');
+    document.getElementById('queryBtn').textContent = '🔄 重新查询(清空)';
+    state.queryAborted = false;
+  } else {
+    showToast(`查询完成！共 ${state.allResults.length} 个结果`, 'success');
+    document.getElementById('progressText').textContent = `✅ 完成 ${state.allResults.length} / ${unique.length}`;
+  }
+
+  updateStats();
+}
+
+function updateProgress(current, total) {
+  const pct = total > 0 ? Math.round((current / total) * 100) : 0;
+  document.getElementById('progressFill').style.width = Math.min(pct, 100) + '%';
+  document.getElementById('progressText').textContent = `查询中 ${current}/${total} (${pct}%)`;
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+/* ===================================================================
+ *  Display
+ * =================================================================== */
+function displayResults() {
+  const filtered = getFilteredResults();
+  document.getElementById('resultsWrap').style.display = 'block';
+  document.getElementById('filterTabs').style.display = 'flex';
+  document.getElementById('priceReminder').style.display = 'flex';
+  document.getElementById('statsBar').style.display = 'flex';
+  document.getElementById('reminderCount').textContent = state.allResults.length;
+  document.getElementById('shownCount').textContent = state.allResults.length;
+
+  const show = filtered.slice(0, state.displayLimit);
+  const tbody = document.getElementById('resultsBody');
+
+  if (show.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="icon">📭</div><p>暂无匹配结果</p></div></td></tr>`;
+    document.getElementById('loadMoreWrap').style.display = 'none';
+    return;
+  }
+
+  let html = '';
+  for (let i = 0; i < show.length; i++) {
+    const r = show[i];
+    const badgeClass = {
+      'normal': 'badge-normal',
+      'empty': 'badge-empty',
+      'pending': 'badge-pending',
+      'invalid': 'badge-invalid',
+    }[r.status] || 'badge-invalid';
+
+    html += `<tr>
+      <td style="color:var(--gray)">${i + 1}</td>
+      <td style="font-family:monospace;font-size:.82rem;word-break:break-all">${escapeHtml(r.number)}</td>
+      <td>${escapeHtml(r.company)}</td>
+      <td><span class="badge ${badgeClass}">${escapeHtml(r.statusText)}</span></td>
+      <td style="max-width:280px;font-size:.8rem;color:var(--gray)">${escapeHtml(r.message)}</td>
+    </tr>`;
+  }
+  tbody.innerHTML = html;
+
+  const hasMore = filtered.length > state.displayLimit;
+  document.getElementById('loadMoreWrap').style.display = hasMore ? 'block' : 'none';
+  if (hasMore) {
+    document.getElementById('loadMoreCount').textContent = `还有 ${filtered.length - state.displayLimit} 条`;
+  }
+
+  updateExportBtn();
+}
+
+function loadMore() {
+  state.displayLimit += 50;
+  displayResults();
+}
+
+function getFilteredResults() {
+  const f = state.currentFilter;
+  if (f === 'all') return state.allResults;
+  return state.allResults.filter(r => r.status === f);
+}
+
+function setFilter(filter) {
+  state.currentFilter = filter;
+  state.displayLimit = 50;
+  // Update tab UI
+  document.querySelectorAll('.filter-tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.filter === filter);
+  });
+  displayResults();
+}
+
+function updateStats() {
+  const total = state.allResults.length;
+  const normal = state.allResults.filter(r => r.status === 'normal').length;
+  const empty = state.allResults.filter(r => r.status === 'empty').length;
+  const pending = state.allResults.filter(r => r.status === 'pending').length;
+  const invalid = state.allResults.filter(r => r.status === 'invalid').length;
+
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statNormal').textContent = normal;
+  document.getElementById('statEmpty').textContent = empty;
+  document.getElementById('statPending').textContent = pending;
+  document.getElementById('statInvalid').textContent = invalid;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+/* ===================================================================
+ *  Export
+ * =================================================================== */
+function updateExportBtn() {
+  const hasPermission = checkPermission();
+  const btn = document.getElementById('exportBtn');
+  const lockInfo = document.getElementById('exportLockInfo');
+  const unlockInfo = document.getElementById('exportUnlockInfo');
+
+  if (hasPermission) {
+    btn.textContent = '📤 导出分类表格';
+    btn.onclick = exportExcel;
+    lockInfo.style.display = 'none';
+    unlockInfo.style.display = 'block';
+  } else {
+    btn.textContent = '🔒 付费导出';
+    btn.onclick = openPaymentModal;
+    lockInfo.style.display = 'block';
+    unlockInfo.style.display = 'none';
+  }
+}
+
+function exportExcel() {
+  if (!checkPermission()) {
+    openPaymentModal();
+    return;
+  }
+
+  const results = state.allResults;
+  if (results.length === 0) {
+    showToast('暂无数据可导出', 'warning');
+    return;
+  }
+
+  const plan = getCurrentPermission();
+  if (!plan) { openPaymentModal(); return; }
+
+  // Check quota for single plan
+  let exportResults = results;
+  if (plan.plan === 'single') {
+    const remaining = plan.quota - (plan.usedCount || 0);
+    if (remaining <= 0) {
+      showToast('单次导出额度已用完，请升级套餐', 'error');
+      openPaymentModal();
+      return;
+    }
+    exportResults = results.slice(0, remaining);
+  }
+
+  // Build data for export
+  const exportData = exportResults.map((r, i) => ({
+    '序号': i + 1,
+    '快递单号': r.number,
+    '快递公司': r.company,
+    '物流状态': r.statusText,
+    '最新物流信息': r.message,
+  }));
+
+  try {
+    // Create separate sheets for each category
+    const categories = {
+      '正常物流': exportResults.filter(r => r.status === 'normal'),
+      '疑似空包': exportResults.filter(r => r.status === 'empty'),
+      '仅揽收': exportResults.filter(r => r.status === 'pending'),
+      '无效单号': exportResults.filter(r => r.status === 'invalid'),
+    };
+
+    const wb2 = XLSX.utils.book_new();
+    // Main sheet "全部结果"
+    const wsAll = XLSX.utils.json_to_sheet(exportData);
+    XLSX.utils.book_append_sheet(wb2, wsAll, '全部结果');
+
+    for (const [catName, catData] of Object.entries(categories)) {
+      if (catData.length > 0) {
+        const catExport = catData.map((r, i) => ({
+          '序号': i + 1,
+          '快递单号': r.number,
+          '快递公司': r.company,
+          '物流状态': r.statusText,
+          '最新物流信息': r.message,
+        }));
+        const wsCat = XLSX.utils.json_to_sheet(catExport);
+        XLSX.utils.book_append_sheet(wb2, wsCat, catName);
+      }
+    }
+
+    XLSX.writeFile(wb2, `快递空包筛查结果_${formatDate()}.xlsx`);
+
+    // Update usage for single plan
+    if (plan.plan === 'single') {
+      plan.usedCount = (plan.usedCount || 0) + exportResults.length;
+      savePermission(plan);
+    }
+
+    showToast(`✅ 导出成功！共 ${exportResults.length} 条记录，按分类分页`, 'success');
+  } catch (err) {
+    showToast('导出失败：' + err.message, 'error');
+  }
+}
+
+function formatDate() {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+}
+
+/* ===================================================================
+ *  Payment & Permission (localStorage)
+ * =================================================================== */
+function openPaymentModal() {
+  updateQRImages();
+  document.getElementById('paymentModal').classList.add('active');
+  document.getElementById('transactionId').value = '';
+  document.getElementById('verifyResult').innerHTML = '';
+  document.body.style.overflow = 'hidden';
+}
+
+function closePaymentModal() {
+  document.getElementById('paymentModal').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+function selectPlan(plan) {
+  state.currentPlan = plan;
+  document.querySelectorAll('.pricing-card').forEach(el => {
+    el.classList.toggle('selected', el.dataset.plan === plan);
+  });
+  updateQRImages();
+}
+
+function updateQRImages() {
+  const plan = PRICING[state.currentPlan];
+  const price = plan.price.toFixed(2);
+  document.getElementById('wechatQR').src = PAYMENT_CONFIG.wechatQR;
+  document.getElementById('alipayQR').src = PAYMENT_CONFIG.alipayQR;
+  document.getElementById('wechatAmount').innerHTML = `金额：<strong>${price}元</strong>`;
+  document.getElementById('alipayAmount').innerHTML = `金额：<strong>${price}元</strong>`;
+}
+
+function verifyPayment() {
+  const txnId = document.getElementById('transactionId').value.trim();
+  const resultDiv = document.getElementById('verifyResult');
+
+  if (!txnId) {
+    resultDiv.innerHTML = '<span style="color:var(--danger)">⚠️ 请输入交易单号</span>';
+    return;
+  }
+
+  // Validate common transaction ID formats
+  // WeChat: typically 28 chars, starts with 420000
+  // Alipay: typically 16-24 digits
+  // Generic: must be at least 8 chars alphanumeric
+  const isValid = /^[A-Za-z0-9]{8,50}$/.test(txnId) ||
+                  /^420000\d{20,24}$/.test(txnId) ||
+                  /^\d{16,24}$/.test(txnId);
+
+  if (!isValid) {
+    resultDiv.innerHTML = '<span style="color:var(--danger)">⚠️ 交易单号格式不正确，请核对后重新输入</span>';
+    return;
+  }
+
+  // Unlock!
+  const plan = state.currentPlan;
+  const planInfo = PRICING[plan];
+  let expireTs = 0;
+
+  if (plan === 'single') {
+    // Single use: no expiry, but use count limit
+    expireTs = Date.now() + 365 * 24 * 60 * 60 * 1000; // 1 year
+  } else {
+    const days = planInfo.duration;
+    expireTs = Date.now() + days * 24 * 60 * 60 * 1000;
+  }
+
+  const permission = {
+    plan: plan,
+    validFrom: Date.now(),
+    validUntil: expireTs,
+    quota: planInfo.quota,
+    usedCount: 0,
+  };
+
+  savePermission(permission);
+  closePaymentModal();
+
+  resultDiv.innerHTML = '<span style="color:var(--success);font-weight:500;">✅ 验证成功！导出权限已解锁 🎉</span>';
+  showToast('🎉 解锁成功！可随时导出分类表格', 'success');
+  updateExportBtn();
+}
+
+function checkPermission() {
+  try {
+    const stored = localStorage.getItem('delivery_checker_permission');
+    if (!stored) return false;
+    const perm = JSON.parse(stored);
+    if (!perm || !perm.validUntil) return false;
+    if (Date.now() > perm.validUntil) {
+      localStorage.removeItem('delivery_checker_permission');
+      return false;
+    }
+    // Check quota for single
+    if (perm.plan === 'single' && perm.usedCount >= perm.quota) {
+      return false;
+    }
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+function getCurrentPermission() {
+  try {
+    const stored = localStorage.getItem('delivery_checker_permission');
+    if (!stored) return null;
+    const perm = JSON.parse(stored);
+    if (!perm || !perm.validUntil) return null;
+    if (Date.now() > perm.validUntil) {
+      localStorage.removeItem('delivery_checker_permission');
+      return null;
+    }
+    return perm;
+  } catch(e) {
+    return null;
+  }
+}
+
+function savePermission(perm) {
+  try {
+    localStorage.setItem('delivery_checker_permission', JSON.stringify(perm));
+  } catch(e) {
+    showToast('权限保存失败，请检查浏览器存储设置', 'error');
+  }
+}
+
+/* ===================================================================
+ *  Initialize
+ * =================================================================== */
+document.addEventListener('DOMContentLoaded', function() {
+  updateCount();
+  updateExportBtn();
+
+  // Close modal on overlay click
+  document.getElementById('paymentModal').addEventListener('click', function(e) {
+    if (e.target === this) closePaymentModal();
+  });
+
+  // Enter key in transaction field
+  document.getElementById('transactionId').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') verifyPayment();
+  });
+});
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</body>
+</html>
