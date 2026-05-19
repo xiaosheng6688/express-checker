@@ -679,10 +679,14 @@ function getTrackingNumbers() {
  * 快递100 API 不支持跨域，使用 CORS 代理转发请求
  * =================================================================== */
 const PROXY_SERVICES = [
-  // 代理1: corsproxy.io (通用)
-  tn => `https://corsproxy.io/?url=${encodeURIComponent('https://www.kuaidi100.com/query?type=auto&postid=' + encodeURIComponent(tn) + '&_=' + Date.now())}`,
-  // 代理2: allorigins.win
-  tn => `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.kuaidi100.com/query?type=auto&postid=' + encodeURIComponent(tn) + '&_=' + Date.now())}`,
+  // 代理1: api.allorigins.win
+  tn => `https://api.allorigins.win/raw?url=${encodeURIComponent('https://www.kuaidi100.com/query?type=auto&postid=' + encodeURIComponent(tn))}`,
+  // 代理2: corsproxy.io
+  tn => `https://corsproxy.io/?${encodeURIComponent('https://www.kuaidi100.com/query?type=auto&postid=' + encodeURIComponent(tn) + '&_=' + Date.now())}`,
+  // 代理3: corsproxy.org
+  tn => `https://corsproxy.org/?(https://www.kuaidi100.com/query?type=auto&postid=${encodeURIComponent(tn)})`,
+  // 代理4: thingproxy (可配置，适合部署到自己的服务器)
+  tn => `https://thingproxy.freeboard.io/fetch/${encodeURIComponent('https://www.kuaidi100.com/query?type=auto&postid=' + encodeURIComponent(tn))}`,
 ];
 
 async function querySingle(trackingNumber) {
