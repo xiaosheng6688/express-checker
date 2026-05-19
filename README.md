@@ -65,11 +65,20 @@ const PAYMENT_CONFIG = {
 | 一周无限权限 | 12.99 元 | 7天内无限次导出 |
 | 一月无限权限 | 19.99 元 | 30天内无限次导出 |
 
+## 已部署上线
+
+当前代码已部署到 **GitHub Pages**，可直接访问：
+
+🔗 **https://xiaosheng6688.github.io/express-checker/**
+
+> 这是公共演示地址，如需商用请替换收款码后自行部署。
+
 ## 技术说明
 
 - 纯前端开发：HTML + CSS + JavaScript
 - 唯一外部依赖：SheetJS（xlsx）从 CDN 加载，用于 Excel 导入导出
-- 物流查询：通过快递100公开查询接口
+- 物流查询：通过快递100公开查询接口（由于跨域限制，自动使用免费 CORS 代理转发）
+- 代理方式：内置 4 个免费 CORS 代理服务自动切换，降低单点故障
 - 数据存储：所有数据仅存储在浏览器 localStorage 中
 - 单号安全：所有数据仅在本地浏览器处理，不上传任何服务器
 
@@ -83,10 +92,25 @@ const PAYMENT_CONFIG = {
 A: 为防止API限流，系统每次只查5个单号，间隔300ms。上千条单号建议分批查询。
 
 **Q: 导出Excel报错？**  
-A: 确保网络能加载 SheetJS 库（`cdnjs.cloudflare.com`），部分网络环境下需科学上网。
+A: 确保网络能加载 SheetJS 库（`cdnjs.cloudflare.com`），首次加载需联网。
 
 **Q: 付款后怎么验证？**  
 A: 支付后在微信/支付宝账单详情中复制"商户单号"粘贴到验证框即可自动解锁。
 
 **Q: 权限丢失了怎么办？**  
 A: 联系客服重新发放解锁码，或在浏览器检查 localStorage 中 `delivery_checker_permission` 是否存在。
+
+**Q: 查询返回「查询失败」或「API无响应」？**  
+A: 由于快递100 API 存在跨域限制，需要 CORS 代理转发请求。内置了4个免费代理自动切换，若全部不可用，可按以下步骤自行部署代理：
+   1. 注册 Cloudflare 账号（免费）
+   2. 在 Workers & Pages 中创建一个 Worker
+   3. 将以下代码粘贴到 Worker 中并部署：
+   ```javascript
+   export default { fetch(req) {
+     const url = new URL(req.url);
+     const target = url.searchParams.get('url');
+     if (!target) return new Response('Missing url param', {status:400});
+     return fetch(target);
+   }}
+   ```
+   4. 在 `index.html` 的 PROXY_SERVICES 数组顶部添加你的 Worker 地址
