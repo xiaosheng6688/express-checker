@@ -102,6 +102,8 @@ function matchByPattern(num) {
     { pattern: /^\d{15}$/, code: 'jd', name: '京东快递' },
     // EMS: 以E开头+13位数字
     { pattern: /^E[A-Z0-9]{13}$/i, code: 'ems', name: 'EMS' },
+    // 韵达: 13位数字，常见以43/44/45/46/47/48/49/50/51开头（放在邮政前面，优先匹配）
+    { pattern: /^(43|44|45|46|47|48|49|50|51|55|56|57|58)\d{11}$/, code: 'yunda', name: '韵达快递' },
     // 邮政: 纯13位数字
     { pattern: /^\d{13}$/, code: 'youzhengguonei', name: '中国邮政' },
     // 中通: 12位纯数字，常见以 7/8/9开头
@@ -110,8 +112,6 @@ function matchByPattern(num) {
     { pattern: /^[1-9]\d{11}$/, code: 'yuantong', name: '圆通速递' },
     // 申通: 12位纯数字，常见以 4/5/7/8/9开头
     { pattern: /^\d{12}$/, code: 'shentong', name: '申通快递' },
-    // 韵达: 13位数字
-    { pattern: /^\d{13}$/, code: 'yunda', name: '韵达快递' },
     // 极兔: JT开头+数字
     { pattern: /^JT\d+/i, code: 'jtexpress', name: '极兔速递' },
     // 德邦: 8位或10位数字
